@@ -8,7 +8,12 @@ with automatic fallback and optimization based on hardware capabilities.
 import asyncio
 from typing import Optional, Dict, Any, List
 from enum import Enum
-import ollama
+
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
 
 from core.config import get_config, ModelType, ModelConfig
 
@@ -35,8 +40,12 @@ class LLMRouter:
     def __init__(self, strategy: RoutingStrategy = RoutingStrategy.AUTO):
         self.config = get_config()
         self.strategy = strategy
-        self.ollama_client = ollama.AsyncClient()
-        self._check_ollama_availability()
+        if OLLAMA_AVAILABLE:
+            self.ollama_client = ollama.AsyncClient()
+            self._check_ollama_availability()
+        else:
+            self.ollama_client = None
+            self.ollama_available = False
     
     def _check_ollama_availability(self) -> bool:
         """Check if Ollama is available and running"""
@@ -57,6 +66,9 @@ class LLMRouter:
         max_tokens: int = 2000
     ) -> str:
         """Call Ollama for offline LLM inference"""
+        if not OLLAMA_AVAILABLE or not self.ollama_client:
+            raise RuntimeError("Ollama is not available. Please install: pip install ollama")
+            
         messages = []
         
         if system_prompt:
@@ -184,6 +196,8 @@ class LLMRouter:
     
     async def list_available_models(self) -> List[str]:
         """List available Ollama models"""
+        if not OLLAMA_AVAILABLE or not self.ollama_client:
+            return []
         try:
             models = await self.ollama_client.list()
             return [model['name'] for model in models.get('models', [])]
@@ -192,6 +206,8 @@ class LLMRouter:
     
     async def pull_model(self, model_name: str) -> bool:
         """Pull a model from Ollama registry"""
+        if not OLLAMA_AVAILABLE or not self.ollama_client:
+            return False
         try:
             await self.ollama_client.pull(model_name)
             return True
@@ -210,11 +226,12 @@ class LLMRouter:
         }
         
         # Test Ollama
-        try:
-            await self.ollama_client.list()
-            results['ollama'] = True
-        except Exception:
-            pass
+        if OLLAMA_AVAILABLE and self.ollama_client:
+            try:
+                await self.ollama_client.list()
+                results['ollama'] = True
+            except Exception:
+                pass
         
         # Cloud testing would go here
         # results['cloud'] = await self._test_cloud_connection()

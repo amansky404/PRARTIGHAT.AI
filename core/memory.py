@@ -10,8 +10,13 @@ import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from dataclasses import dataclass, asdict
-import chromadb
-from chromadb.config import Settings
+
+try:
+    import chromadb
+    from chromadb.config import Settings
+    CHROMADB_AVAILABLE = True
+except ImportError:
+    CHROMADB_AVAILABLE = False
 
 from core.config import get_config
 
@@ -52,16 +57,22 @@ class MemoryEngine:
         self.conn = sqlite3.connect(self.sqlite_path, check_same_thread=False)
         self._init_sqlite_schema()
         
-        # Initialize ChromaDB
-        self.chroma_client = chromadb.Client(Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory=self.chroma_path
-        ))
-        
-        # Create collections
-        self.scan_collection = self._get_or_create_collection("scans")
-        self.reasoning_collection = self._get_or_create_collection("reasoning")
-        self.pattern_collection = self._get_or_create_collection("patterns")
+        # Initialize ChromaDB if available
+        if CHROMADB_AVAILABLE:
+            self.chroma_client = chromadb.Client(Settings(
+                chroma_db_impl="duckdb+parquet",
+                persist_directory=self.chroma_path
+            ))
+            
+            # Create collections
+            self.scan_collection = self._get_or_create_collection("scans")
+            self.reasoning_collection = self._get_or_create_collection("reasoning")
+            self.pattern_collection = self._get_or_create_collection("patterns")
+        else:
+            self.chroma_client = None
+            self.scan_collection = None
+            self.reasoning_collection = None
+            self.pattern_collection = None
     
     def _init_sqlite_schema(self) -> None:
         """Initialize SQLite database schema"""
@@ -135,6 +146,8 @@ class MemoryEngine:
     
     def _get_or_create_collection(self, name: str):
         """Get or create a ChromaDB collection"""
+        if not CHROMADB_AVAILABLE or not self.chroma_client:
+            return None
         try:
             return self.chroma_client.get_collection(name)
         except:
@@ -247,19 +260,26 @@ class MemoryEngine:
     def vectorize_and_store(self, collection_name: str, text: str, 
                            metadata: Dict[str, Any], doc_id: str) -> None:
         """Store text with vector embedding in ChromaDB"""
+        if not CHROMADB_AVAILABLE or not self.chroma_client:
+            return  # Silently skip if ChromaDB not available
+            
         collection = getattr(self, f"{collection_name}_collection", None)
         if not collection:
             collection = self._get_or_create_collection(collection_name)
         
-        collection.add(
-            documents=[text],
-            metadatas=[metadata],
-            ids=[doc_id]
-        )
+        if collection:
+            collection.add(
+                documents=[text],
+                metadatas=[metadata],
+                ids=[doc_id]
+            )
     
     def semantic_search(self, collection_name: str, query: str, 
                        n_results: int = 5) -> List[Dict[str, Any]]:
         """Perform semantic search in ChromaDB"""
+        if not CHROMADB_AVAILABLE or not self.chroma_client:
+            return []  # Return empty if ChromaDB not available
+            
         collection = getattr(self, f"{collection_name}_collection", None)
         if not collection:
             return []
