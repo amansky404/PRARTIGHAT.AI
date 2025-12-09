@@ -8,6 +8,8 @@ manages decision-making, and orchestrates the entire system.
 from typing import Dict, Any, List, Optional
 from enum import Enum
 import asyncio
+import json
+import re
 
 from core.config import get_config, ModelType, OperationalMode
 from core.routing import route_request, get_router
@@ -159,9 +161,6 @@ Provide a strategic analysis with:
             
         Returns:
             List of tasks for agent execution
-            
-        Note: This is a placeholder for future LLM-powered task decomposition.
-        In production, this would parse LLM output and create Task objects.
         """
         decomposition_prompt = f"""
 Objective: {objective}
@@ -175,27 +174,161 @@ Break this down into specific tasks that can be executed by specialized agents:
 - Report Agent: Documentation, reporting
 
 For each task, specify:
-1. Agent name
+1. Agent name (recon/exploit/chain/pattern/bypass/report)
 2. Action to perform
-3. Parameters needed
-4. Priority (LOW, NORMAL, HIGH, CRITICAL)
+3. Parameters needed (as JSON object)
+4. Priority (LOW/NORMAL/HIGH/CRITICAL)
 
-Format as JSON list of tasks.
+Format as JSON array:
+[
+  {{
+    "agent": "agent_name",
+    "action": "action_name",
+    "params": {{}},
+    "priority": "NORMAL"
+  }}
+]
+
+Return ONLY the JSON array, no other text.
 """
         
-        # TODO: Implement JSON parsing and Task object creation
-        # This would require LLM to be available and proper JSON parsing
-        # For now, return empty list - agents can be called directly
+        try:
+            # Try to use LLM for task decomposition
+            response = await route_request(
+                ModelType.STRATEGIST,
+                decomposition_prompt,
+                context=""
+            )
+            
+            # Extract JSON from response
+            tasks = self._parse_task_json(response, objective)
+            return tasks
+            
+        except Exception as e:
+            # Fallback: Create simple task based on objective keywords
+            return self._fallback_task_decomposition(objective)
+    
+    def _parse_task_json(self, response: str, objective: str) -> List[Task]:
+        """Parse JSON task list from LLM response"""
+        tasks = []
         
-        # Example of what this should return:
-        # tasks = []
-        # response = await route_request(ModelType.STRATEGIST, decomposition_prompt, ...)
-        # parsed = json.loads(response)
-        # for task_data in parsed:
-        #     tasks.append(Task(...))
-        # return tasks
+        try:
+            # Try to extract JSON array from response
+            json_match = re.search(r'\[[\s\S]*\]', response)
+            if json_match:
+                task_list = json.loads(json_match.group(0))
+                
+                for i, task_data in enumerate(task_list):
+                    if isinstance(task_data, dict):
+                        agent = task_data.get("agent", "recon")
+                        action = task_data.get("action", "analyze")
+                        params = task_data.get("params", {})
+                        priority_str = task_data.get("priority", "NORMAL")
+                        
+                        # Convert priority string to enum
+                        try:
+                            priority = TaskPriority[priority_str.upper()]
+                        except:
+                            priority = TaskPriority.NORMAL
+                        
+                        task = Task(
+                            task_id=f"task_{i+1}",
+                            agent=agent,
+                            action=action,
+                            params=params,
+                            priority=priority
+                        )
+                        tasks.append(task)
+            
+        except Exception as e:
+            # If parsing fails, fall back
+            pass
         
-        return []
+        return tasks if tasks else self._fallback_task_decomposition(objective)
+    
+    def _fallback_task_decomposition(self, objective: str) -> List[Task]:
+        """Fallback task decomposition based on keywords"""
+        objective_lower = objective.lower()
+        tasks = []
+        task_id = 1
+        
+        # Check for reconnaissance keywords
+        if any(word in objective_lower for word in ["scan", "recon", "discover", "enumerate", "host", "port", "service"]):
+            tasks.append(Task(
+                task_id=f"task_{task_id}",
+                agent="recon",
+                action="analyze_target",
+                params={"objective": objective},
+                priority=TaskPriority.HIGH
+            ))
+            task_id += 1
+        
+        # Check for vulnerability keywords
+        if any(word in objective_lower for word in ["vulnerability", "exploit", "weakness", "poc", "cve"]):
+            tasks.append(Task(
+                task_id=f"task_{task_id}",
+                agent="exploit",
+                action="explain_vulnerability",
+                params={"objective": objective},
+                priority=TaskPriority.NORMAL
+            ))
+            task_id += 1
+        
+        # Check for attack path keywords
+        if any(word in objective_lower for word in ["attack", "path", "chain", "lateral", "movement"]):
+            tasks.append(Task(
+                task_id=f"task_{task_id}",
+                agent="chain",
+                action="predict_attack_path",
+                params={"objective": objective},
+                priority=TaskPriority.NORMAL
+            ))
+            task_id += 1
+        
+        # Check for pattern/analysis keywords
+        if any(word in objective_lower for word in ["pattern", "detect", "analyze", "fingerprint", "identify"]):
+            tasks.append(Task(
+                task_id=f"task_{task_id}",
+                agent="pattern",
+                action="detect_patterns",
+                params={"objective": objective},
+                priority=TaskPriority.NORMAL
+            ))
+            task_id += 1
+        
+        # Check for fuzzing/bypass keywords
+        if any(word in objective_lower for word in ["fuzz", "bypass", "waf", "filter", "encoding"]):
+            tasks.append(Task(
+                task_id=f"task_{task_id}",
+                agent="bypass",
+                action="analyze_input_validation",
+                params={"objective": objective},
+                priority=TaskPriority.NORMAL
+            ))
+            task_id += 1
+        
+        # Check for report keywords
+        if any(word in objective_lower for word in ["report", "document", "summary", "findings"]):
+            tasks.append(Task(
+                task_id=f"task_{task_id}",
+                agent="report",
+                action="generate_executive_summary",
+                params={"objective": objective},
+                priority=TaskPriority.NORMAL
+            ))
+            task_id += 1
+        
+        # If no specific keywords, create a general query task
+        if not tasks:
+            tasks.append(Task(
+                task_id="task_1",
+                agent="recon",
+                action="analyze_target",
+                params={"objective": objective},
+                priority=TaskPriority.NORMAL
+            ))
+        
+        return tasks
     
     def _build_context_string(self, memories: List[MemoryEntry]) -> str:
         """Build context string from memory entries"""
