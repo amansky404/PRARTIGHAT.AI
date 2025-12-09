@@ -59,7 +59,7 @@ class NmapParser:
                     }
             
             # Parse port information
-            elif current_host and "/tcp" in line or "/udp" in line:
+            elif current_host and ("/tcp" in line or "/udp" in line):
                 port_match = re.match(
                     r'(\d+)/(tcp|udp)\s+(\w+)\s+(\S+)(?:\s+(.+))?',
                     line

@@ -320,7 +320,7 @@ class ToolExecutor:
                 timeout=5
             )
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, FileNotFoundError, subprocess.TimeoutExpired):
             return False
     
     def get_available_tools(self) -> List[str]:
