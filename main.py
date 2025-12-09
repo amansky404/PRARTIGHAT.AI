@@ -9,160 +9,136 @@ import argparse
 import sys
 from typing import Optional
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
-
 from core.config import get_config, OperationalMode
 from core.brain import get_core
-
-
-console = Console()
-
-
-def print_banner():
-    """Print PRATIGHAT.AI banner"""
-    banner = """
-╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║   ██████╗ ██████╗  █████╗ ████████╗██╗ ██████╗ ██╗  ██╗     ║
-║   ██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██║██╔════╝ ██║  ██║     ║
-║   ██████╔╝██████╔╝███████║   ██║   ██║██║  ███╗███████║     ║
-║   ██╔═══╝ ██╔══██╗██╔══██║   ██║   ██║██║   ██║██╔══██║     ║
-║   ██║     ██║  ██║██║  ██║   ██║   ██║╚██████╔╝██║  ██║     ║
-║   ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═╝     ║
-║                         .AI                                   ║
-║                                                               ║
-║   Indigenous AI-Powered Penetration Testing Platform         ║
-║   Autonomous Red-Team Intelligence Engine                    ║
-║   For Authorized Cyber Ranges & Security Research            ║
-║                                                               ║
-║   Version 1.0.0 | Made in India 🇮🇳                          ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
-    """
-    
-    console.print(banner, style="bold cyan")
-    console.print()
-
-
-def print_system_info():
-    """Print system information"""
-    config = get_config()
-    hw = config.hardware
-    
-    info_text = f"""
-[bold]System Configuration:[/bold]
-  • Hardware Mode: [cyan]{hw.mode.value.upper()}[/cyan]
-  • RAM: [cyan]{hw.ram_gb:.1f} GB[/cyan]
-  • CPU Cores: [cyan]{hw.cpu_cores}[/cyan]
-  • GPU Available: [cyan]{'Yes' if hw.has_gpu else 'No'}[/cyan]
-  • Temperature: [cyan]{hw.temperature:.1f}°C[/cyan]
-  • Operational Mode: [cyan]{config.operational_mode.value.upper()}[/cyan]
-
-[bold]LLM Models:[/bold]
-  • Strategist: [cyan]{config.models[list(config.models.keys())[0]].name}[/cyan]
-  • Executor: [cyan]{config.models[list(config.models.keys())[1]].name if len(config.models) > 1 else 'N/A'}[/cyan]
-
-[bold]Safety:[/bold]
-  • Safe Mode: [green]ENABLED[/green]
-  • Simulation Only: [green]ENABLED[/green]
-"""
-    
-    console.print(Panel(info_text, title="[bold]PRATIGHAT-CORE Status[/bold]", 
-                       border_style="green"))
-    console.print()
+from agents.recon import ReconAgent
+from agents.report import ReportAgent
+from ui.terminal import get_ui
 
 
 async def interactive_mode():
     """Run in interactive mode"""
-    print_banner()
-    print_system_info()
+    ui = get_ui()
+    ui.print_banner()
     
+    config = get_config()
+    ui.print_system_info(config)
+    
+    # Initialize core and agents
     core = get_core()
+    recon_agent = ReconAgent()
+    report_agent = ReportAgent()
     
-    console.print("[bold green]Interactive Mode Active[/bold green]")
-    console.print("[dim]Type 'help' for commands, 'exit' to quit[/dim]\n")
+    # Register agents with core
+    core.register_agent("recon", recon_agent)
+    core.register_agent("report", report_agent)
+    
+    ui.console.print("[bold green]Interactive Mode Active[/bold green]")
+    ui.console.print("[dim]Type 'help' for commands, 'exit' to quit[/dim]\n")
+    
+    ui.add_log("PRATIGHAT-CORE initialized", "INFO", "core")
+    ui.add_log("Agents registered: recon, report", "INFO", "core")
     
     while True:
         try:
             # Get user input
-            query = console.input("[bold cyan]PRATIGHAT>[/bold cyan] ")
+            query = ui.input("[bold cyan]PRATIGHAT>[/bold cyan] ")
             
             if not query.strip():
                 continue
             
             # Handle commands
             if query.lower() in ['exit', 'quit', 'q']:
-                console.print("[yellow]Shutting down PRATIGHAT-CORE...[/yellow]")
+                ui.console.print("[yellow]Shutting down PRATIGHAT-CORE...[/yellow]")
                 break
             
             elif query.lower() == 'help':
-                help_text = """
-[bold]Available Commands:[/bold]
-  • help          - Show this help message
-  • status        - Show system status
-  • config        - Show configuration
-  • clear         - Clear screen
-  • exit/quit/q   - Exit PRATIGHAT.AI
-
-[bold]Usage:[/bold]
-  Just type your query and PRATIGHAT-CORE will analyze it.
-  Example: "Explain SQL injection for educational purposes"
-"""
-                console.print(Panel(help_text, title="Help", border_style="blue"))
+                ui.show_help()
                 continue
             
             elif query.lower() == 'status':
-                print_system_info()
+                ui.print_system_info(config)
                 continue
             
             elif query.lower() == 'config':
-                config = get_config()
-                console.print(f"[bold]Configuration:[/bold]")
-                console.print(f"  • Database: {config.sqlite_path}")
-                console.print(f"  • Vector DB: {config.chroma_path}")
-                console.print(f"  • API: {config.api_host}:{config.api_port}")
-                console.print()
+                ui.console.print(f"[bold]Configuration:[/bold]")
+                ui.console.print(f"  • Database: {config.sqlite_path}")
+                ui.console.print(f"  • Vector DB: {config.chroma_path}")
+                ui.console.print(f"  • API: {config.api_host}:{config.api_port}")
+                ui.console.print()
+                continue
+            
+            elif query.lower() == 'agents':
+                ui.print_agent_status({
+                    "recon": "idle",
+                    "report": "idle",
+                    "core": "active"
+                })
+                continue
+            
+            elif query.lower() == 'logs':
+                ui.print_logs()
                 continue
             
             elif query.lower() == 'clear':
-                console.clear()
-                print_banner()
+                ui.clear()
+                ui.print_banner()
+                continue
+            
+            # Handle agent commands
+            elif query.lower().startswith('recon '):
+                target = query[6:].strip()
+                ui.add_log(f"Starting recon on {target}", "INFO", "recon")
+                
+                with ui.create_progress() as progress:
+                    task = progress.add_task(f"[cyan]Analyzing {target}...", total=None)
+                    result = await recon_agent.execute("analyze_target", {"target": target})
+                    progress.update(task, completed=True)
+                
+                ui.print_result(result, "Reconnaissance Result")
+                ui.add_log(f"Recon completed for {target}", "INFO", "recon")
+                continue
+            
+            elif query.lower() == 'report':
+                ui.add_log("Generating report", "INFO", "report")
+                
+                with ui.create_progress() as progress:
+                    task = progress.add_task("[cyan]Generating report...", total=None)
+                    result = await report_agent.execute("generate_executive_summary", {
+                        "scope": "General assessment",
+                        "findings": []
+                    })
+                    progress.update(task, completed=True)
+                
+                ui.print_result(result, "Report Generation")
+                ui.add_log("Report generated", "INFO", "report")
                 continue
             
             # Process query through PRATIGHAT-CORE
-            console.print("[dim]Processing with PRATIGHAT-CORE...[/dim]\n")
+            ui.add_log(f"Processing query: {query[:50]}...", "INFO", "core")
+            ui.console.print("[dim]Processing with PRATIGHAT-CORE...[/dim]\n")
             
             response = await core.process_query(query)
             
-            console.print(Panel(response, title="[bold]PRATIGHAT-CORE Response[/bold]",
-                              border_style="green"))
-            console.print()
+            ui.print_result(response, "PRATIGHAT-CORE Response")
+            ui.add_log("Query processed successfully", "INFO", "core")
             
         except KeyboardInterrupt:
-            console.print("\n[yellow]Use 'exit' to quit[/yellow]")
+            ui.console.print("\n[yellow]Use 'exit' to quit[/yellow]")
         except Exception as e:
-            console.print(f"[bold red]Error:[/bold red] {str(e)}\n")
+            ui.print_error(f"Error: {str(e)}")
+            ui.add_log(f"Error: {str(e)}", "ERROR", "core")
 
 
 async def api_mode(host: str, port: int):
     """Run in API mode"""
     import uvicorn
     
-    print_banner()
-    console.print(f"[bold green]Starting API Server on {host}:{port}[/bold green]\n")
-    
-    # Import FastAPI app
-    try:
-        from api.server import app
-        
-        config = uvicorn.Config(app, host=host, port=port, log_level="info")
-        server = uvicorn.Server(config)
-        await server.serve()
-    except ImportError:
-        console.print("[red]API server not yet implemented[/red]")
-        console.print("[dim]Run in interactive mode with: pratighat --interactive[/dim]")
+    ui = get_ui()
+    ui.print_banner()
+    ui.console.print(f"[bold green]Starting API Server on {host}:{port}[/bold green]\n")
+    ui.console.print("[yellow]API server not yet fully implemented[/yellow]")
+    ui.console.print("[dim]Run in interactive mode with: python main.py --interactive[/dim]")
 
 
 def main():
@@ -226,9 +202,10 @@ def main():
         asyncio.run(interactive_mode())
     else:
         # Default to interactive
-        print_banner()
-        console.print("[dim]Starting in interactive mode...[/dim]")
-        console.print("[dim]Use --help for more options[/dim]\n")
+        ui = get_ui()
+        ui.print_banner()
+        ui.console.print("[dim]Starting in interactive mode...[/dim]")
+        ui.console.print("[dim]Use --help for more options[/dim]\n")
         asyncio.run(interactive_mode())
 
 
