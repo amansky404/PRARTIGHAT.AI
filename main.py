@@ -13,6 +13,10 @@ from core.config import get_config, OperationalMode
 from core.brain import get_core
 from agents.recon import ReconAgent
 from agents.report import ReportAgent
+from agents.exploit import ExploitAgent
+from agents.chain import ChainAgent
+from agents.pattern import PatternAgent
+from agents.bypass import BypassAgent
 from ui.terminal import get_ui
 
 
@@ -28,16 +32,24 @@ async def interactive_mode():
     core = get_core()
     recon_agent = ReconAgent()
     report_agent = ReportAgent()
+    exploit_agent = ExploitAgent()
+    chain_agent = ChainAgent()
+    pattern_agent = PatternAgent()
+    bypass_agent = BypassAgent()
     
     # Register agents with core
     core.register_agent("recon", recon_agent)
     core.register_agent("report", report_agent)
+    core.register_agent("exploit", exploit_agent)
+    core.register_agent("chain", chain_agent)
+    core.register_agent("pattern", pattern_agent)
+    core.register_agent("bypass", bypass_agent)
     
     ui.console.print("[bold green]Interactive Mode Active[/bold green]")
     ui.console.print("[dim]Type 'help' for commands, 'exit' to quit[/dim]\n")
     
     ui.add_log("PRATIGHAT-CORE initialized", "INFO", "core")
-    ui.add_log("Agents registered: recon, report", "INFO", "core")
+    ui.add_log("Agents registered: recon, report, exploit, chain, pattern, bypass", "INFO", "core")
     
     while True:
         try:
@@ -72,6 +84,10 @@ async def interactive_mode():
                 ui.print_agent_status({
                     "recon": "idle",
                     "report": "idle",
+                    "exploit": "idle",
+                    "chain": "idle",
+                    "pattern": "idle",
+                    "bypass": "idle",
                     "core": "active"
                 })
                 continue
