@@ -70,8 +70,8 @@ class TerminalUI:
   • Operational Mode: [cyan]{config.operational_mode.value.upper()}[/cyan]
 
 [bold]Safety:[/bold]
-  • Safe Mode: [green]ENABLED[/green]
-  • Simulation Only: [green]ENABLED[/green]
+  • Safe Mode: [{'green' if config.safe_mode else 'red'}]{'ENABLED' if config.safe_mode else 'DISABLED'}[/{'green' if config.safe_mode else 'red'}]
+  • Simulation Only: [{'green' if config.simulation_only else 'red'}]{'ENABLED' if config.simulation_only else 'DISABLED'}[/{'green' if config.simulation_only else 'red'}]
 """
         
         self.console.print(Panel(info_text, title="[bold]PRATIGHAT-CORE Status[/bold]", 

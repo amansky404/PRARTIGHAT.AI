@@ -132,13 +132,28 @@ async def interactive_mode():
 
 async def api_mode(host: str, port: int):
     """Run in API mode"""
-    import uvicorn
-    
     ui = get_ui()
     ui.print_banner()
-    ui.console.print(f"[bold green]Starting API Server on {host}:{port}[/bold green]\n")
-    ui.console.print("[yellow]API server not yet fully implemented[/yellow]")
-    ui.console.print("[dim]Run in interactive mode with: python main.py --interactive[/dim]")
+    ui.console.print(f"[bold yellow]API Server Mode[/bold yellow]\n")
+    ui.console.print("[yellow]⚠ API server is not yet fully implemented in this version.[/yellow]")
+    ui.console.print()
+    ui.console.print("[dim]The API server will be added in a future update.[/dim]")
+    ui.console.print("[dim]For now, please use interactive mode: python main.py[/dim]")
+    ui.console.print()
+    ui.console.print("[bold]Planned API features:[/bold]")
+    ui.console.print("  • RESTful endpoints for all agents")
+    ui.console.print("  • WebSocket support for real-time updates")
+    ui.console.print("  • Authentication and rate limiting")
+    ui.console.print("  • OpenAPI documentation")
+    ui.console.print()
+    ui.console.print("[green]Would you like to start in interactive mode instead? (y/n)[/green]")
+    
+    try:
+        choice = ui.input().lower()
+        if choice == 'y':
+            await interactive_mode()
+    except KeyboardInterrupt:
+        ui.console.print("\n[yellow]Exiting...[/yellow]")
 
 
 def main():

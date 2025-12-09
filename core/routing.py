@@ -49,13 +49,10 @@ class LLMRouter:
     
     def _check_ollama_availability(self) -> bool:
         """Check if Ollama is available and running"""
-        try:
-            # This will be checked asynchronously in actual usage
-            self.ollama_available = True
-            return True
-        except Exception:
-            self.ollama_available = False
-            return False
+        # Availability is checked on first actual use
+        # Setting a flag for now
+        self.ollama_available = OLLAMA_AVAILABLE
+        return OLLAMA_AVAILABLE
     
     async def _call_ollama(
         self, 

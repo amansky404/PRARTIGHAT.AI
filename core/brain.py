@@ -159,6 +159,9 @@ Provide a strategic analysis with:
             
         Returns:
             List of tasks for agent execution
+            
+        Note: This is a placeholder for future LLM-powered task decomposition.
+        In production, this would parse LLM output and create Task objects.
         """
         decomposition_prompt = f"""
 Objective: {objective}
@@ -180,16 +183,18 @@ For each task, specify:
 Format as JSON list of tasks.
 """
         
-        response = await route_request(
-            ModelType.STRATEGIST,
-            decomposition_prompt,
-            temperature=0.3,
-            max_tokens=1500
-        )
+        # TODO: Implement JSON parsing and Task object creation
+        # This would require LLM to be available and proper JSON parsing
+        # For now, return empty list - agents can be called directly
         
-        # Parse response and create tasks
-        # In a production system, this would parse JSON
-        # For now, return empty list (to be implemented by agents)
+        # Example of what this should return:
+        # tasks = []
+        # response = await route_request(ModelType.STRATEGIST, decomposition_prompt, ...)
+        # parsed = json.loads(response)
+        # for task_data in parsed:
+        #     tasks.append(Task(...))
+        # return tasks
+        
         return []
     
     def _build_context_string(self, memories: List[MemoryEntry]) -> str:
